@@ -82,6 +82,17 @@ jobs:
           oauth-client-id: ${{ secrets.TS_INFRA_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_INFRA_OAUTH_SECRET }}
           tags: tag:infra-ci
+      # A fresh server needs a minute or two to boot, run cloud-init and join the tailnet.
+      - name: Wait for the server
+        run: |
+          for _ in $(seq 1 60); do
+            tailscale ping -c 1 --timeout 5s xlobax-vps > /dev/null 2>&1 && break
+            sleep 5
+          done
+          # Exit 2 = "done, with recoverable errors": Hetzner's own vendor-data triggers deprecation warnings.
+          rc=0
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@xlobax-vps cloud-init status --wait || rc=$?
+          [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ]
       - name: ansible-playbook
         run: |
           TUNNEL_TOKEN=$(terraform -chdir=terraform output -raw tunnel_token)
