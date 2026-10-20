@@ -8,9 +8,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Applies on main queue one at a time. PR runs only read, so each PR gets its own group (a new push replaces the
+# old run). Sharing one group let a PR push cancel a merge's pending apply: GitHub keeps one pending run per group.
 concurrency:
-  group: infra
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('infra-pr-{0}', github.event.number) || 'infra' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
