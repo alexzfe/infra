@@ -23,6 +23,47 @@
       Unattended-Upgrade::Automatic-Reboot "true";
       Unattended-Upgrade::Automatic-Reboot-Time "09:00";
 
+# The default list only covers Ubuntu's archives; Docker's repo would otherwise never update. Docker's live-restore
+# (docker role) keeps containers running while dockerd restarts for the upgrade.
+- name: Let unattended upgrades update Docker
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/51unattended-upgrades-docker
+    mode: "0644"
+    content: |
+      Unattended-Upgrade::Origins-Pattern { "origin=Docker,codename=${distro_codename},label=Docker CE"; };
+
+# The box has no swap out of the box. A little gives the kernel room to page out idle memory before the OOM killer
+# has to pick a process; low swappiness keeps it a last resort.
+- name: Create the swapfile
+  ansible.builtin.shell:
+    cmd: fallocate -l 2G /swapfile && chmod 600 /swapfile && mkswap /swapfile
+    creates: /swapfile
+
+- name: Write the swap unit
+  ansible.builtin.copy:
+    dest: /etc/systemd/system/swapfile.swap
+    mode: "0644"
+    content: |
+      [Swap]
+      What=/swapfile
+
+      [Install]
+      WantedBy=swap.target
+
+- name: Enable swap
+  ansible.builtin.systemd_service:
+    name: swapfile.swap
+    state: started
+    enabled: true
+    daemon_reload: true
+
+- name: Prefer RAM over swap
+  ansible.builtin.copy:
+    dest: /etc/sysctl.d/60-swappiness.conf
+    mode: "0644"
+    content: "vm.swappiness = 10\n"
+  notify: Apply sysctl
+
 # Tailscale SSH replaces OpenSSH. Break-glass access is the Hetzner web console.
 - name: Disable OpenSSH
   ansible.builtin.systemd_service:

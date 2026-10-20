@@ -16,8 +16,10 @@
       - docker-buildx-plugin
       - docker-compose-plugin
     update_cache: true
+    cache_valid_time: 3600
 
-# Rotate container logs so they can't fill the disk.
+# Rotate container logs so they can't fill the disk, and keep containers running while dockerd restarts (upgrades,
+# the restart below).
 - name: Configure the Docker daemon
   ansible.builtin.copy:
     dest: /etc/docker/daemon.json
@@ -25,7 +27,8 @@
     content: |
       {
         "log-driver": "local",
-        "log-opts": { "max-size": "10m", "max-file": "3" }
+        "log-opts": { "max-size": "10m", "max-file": "3" },
+        "live-restore": true
       }
   notify: Restart docker
 

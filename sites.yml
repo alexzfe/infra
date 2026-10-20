@@ -12,6 +12,7 @@
 #   env                Plain environment variables, for both envs. `{host}` becomes that env's hostname. Not for
 #                      secrets: this repo is public.
 #   healthcheck: image Use the image's own HEALTHCHECK instead of wget on `health_path` (images without wget).
+#   mem_limit          Prod's memory cap (default 1g).
 #   staging_mem_limit  Staging's memory cap (default 256m).
 #   max_body_size      nginx's `client_max_body_size` (default 1m).
 #   stream_paths       Paths that stream responses (Server-Sent Events): no proxy buffering, long read timeout.
