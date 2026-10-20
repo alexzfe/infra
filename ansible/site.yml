@@ -1,0 +1,13 @@
+# Converges the VPS. Safe to re-run: never starts or changes a deployed app, only its compose file.
+# TUNNEL_TOKEN=$(terraform -chdir=../terraform output -raw tunnel_token) ansible-playbook site.yml
+- name: Configure the VPS
+  hosts: all
+  vars_files:
+    - ../sites.yml
+  vars:
+    tunnel_token: "{{ lookup('ansible.builtin.env', 'TUNNEL_TOKEN') }}"
+  roles:
+    - base
+    - docker
+    - edge
+    - apps

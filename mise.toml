@@ -1,0 +1,5 @@
+[tools]
+terraform = "1.16.6"
+"pipx:ansible-core" = "2.21.5"
+"pipx:ansible-lint" = "latest"
+shellcheck = "0.11.0"

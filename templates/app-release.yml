@@ -1,0 +1,76 @@
+# Copy to <app repo>/.github/workflows/release.yml and replace `arcade` and its URLs with the app's
+# entry in infra/sites.yml.
+#
+#   PR            -> test
+#   push to main  -> test, build ghcr.io/<repo>:<sha>, deploy to staging
+#   push tag v*   -> deploy the image already built for that commit to prod, then cut a GitHub Release
+#
+# Prod never rebuilds: the tag points at a commit main already built and staging already ran.
+name: release
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+    tags: ["v*"]
+
+env:
+  IMAGE: ghcr.io/${{ github.repository }}
+
+jobs:
+  test:
+    if: github.ref_type != 'tag'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      # Replace with the repo's own checks, e.g. pnpm install && pnpm typecheck && pnpm test
+      - run: echo "add lint / typecheck / tests here"
+
+  build:
+    if: github.ref == 'refs/heads/main'
+    needs: test
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          push: true
+          tags: ${{ env.IMAGE }}:${{ github.sha }}
+
+  staging:
+    needs: build
+    uses: alexzfe/infra/.github/workflows/deploy-app.yml@main
+    with:
+      app: arcade
+      env: staging
+      tag: ${{ github.sha }}
+      url: https://arcade-staging.xlobax.com
+    secrets: inherit
+
+  prod:
+    if: github.ref_type == 'tag'
+    uses: alexzfe/infra/.github/workflows/deploy-app.yml@main
+    with:
+      app: arcade
+      env: prod
+      tag: ${{ github.sha }}
+      url: https://arcade.xlobax.com
+    secrets: inherit
+
+  release:
+    needs: prod
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --generate-notes
+        env:
+          GH_TOKEN: ${{ github.token }}

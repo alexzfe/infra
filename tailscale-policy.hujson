@@ -1,0 +1,27 @@
+{
+	"tagOwners": {
+		// Owned by tag:infra-ci too, so the infra OAuth client can mint server-only join keys.
+		"tag:server":   ["autogroup:admin", "tag:infra-ci"],
+		"tag:infra-ci": ["autogroup:admin"],
+		"tag:ci":       ["autogroup:admin"],
+	},
+
+	"grants": [
+		// People (and devices shared with friends) keep reaching everything, as before.
+		{"src": ["autogroup:member", "autogroup:shared"], "dst": ["*"], "ip": ["*"]},
+		// CI may reach only the VPS, and only SSH. Nothing at home.
+		{"src": ["tag:infra-ci", "tag:ci"], "dst": ["tag:server"], "ip": ["tcp:22"]},
+	],
+
+	"ssh": [
+		{"action": "check", "src": ["autogroup:member"], "dst": ["autogroup:self"], "users": ["autogroup:nonroot", "root"]},
+		{"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:server"], "users": ["root", "deploy"]},
+		{"action": "accept", "src": ["tag:infra-ci"], "dst": ["tag:server"], "users": ["root"]},
+		{"action": "accept", "src": ["tag:ci"], "dst": ["tag:server"], "users": ["deploy"]},
+	],
+
+	"tests": [
+		{"src": "tag:ci", "accept": ["tag:server:22"], "deny": ["tag:server:80"]},
+		{"src": "tag:infra-ci", "accept": ["tag:server:22"]},
+	],
+}

@@ -1,0 +1,31 @@
+# Managed by Ansible. Nothing publishes a port: cloudflared dials out to Cloudflare and reaches Caddy
+# over the internal `edge` network, which every app joins too.
+name: edge
+
+services:
+  caddy:
+    image: {{ edge_caddy_image }}
+    restart: unless-stopped
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+    networks:
+      - edge
+
+  cloudflared:
+    image: {{ edge_cloudflared_image }}
+    restart: unless-stopped
+    command: tunnel --no-autoupdate run
+    environment:
+      TUNNEL_TOKEN: ${TUNNEL_TOKEN}
+    depends_on:
+      - caddy
+    networks:
+      - edge
+
+networks:
+  edge:
+    name: edge
+
+volumes:
+  caddy_data:

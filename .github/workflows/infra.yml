@@ -1,0 +1,90 @@
+# PR: lint, `terraform plan` and `ansible --check --diff`, both written to the job summary.
+# Merge to main: `terraform apply`, then converge the server with Ansible.
+name: infra
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: infra
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash # -eo pipefail, so `plan | tee` still fails the job
+
+env:
+  TF_IN_AUTOMATION: "1"
+  HCLOUD_TOKEN: ${{ secrets.HCLOUD_TOKEN }}
+  CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+  TAILSCALE_OAUTH_CLIENT_ID: ${{ secrets.TS_INFRA_OAUTH_CLIENT_ID }}
+  TAILSCALE_OAUTH_CLIENT_SECRET: ${{ secrets.TS_INFRA_OAUTH_SECRET }}
+  AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+  AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+  ANSIBLE_HOST_KEY_CHECKING: "False" # identity comes from Tailscale, and host keys change on rebuild
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - run: terraform -chdir=terraform fmt -check -recursive
+      - run: terraform -chdir=terraform init -backend=false && terraform -chdir=terraform validate
+      - run: cd ansible && ansible-lint site.yml
+
+  plan:
+    if: github.event_name == 'pull_request'
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - run: terraform -chdir=terraform init -backend-config=backend.hcl
+      - name: terraform plan
+        run: |
+          terraform -chdir=terraform plan -no-color -lock=false | tee plan.txt
+          { echo '### terraform plan'; echo '```'; cat plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+      - uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_INFRA_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_INFRA_OAUTH_SECRET }}
+          tags: tag:infra-ci
+      - name: ansible --check --diff
+        run: |
+          TUNNEL_TOKEN=$(terraform -chdir=terraform output -raw tunnel_token)
+          export TUNNEL_TOKEN
+          echo "::add-mask::$TUNNEL_TOKEN"
+          cd ansible && ansible-playbook site.yml --check --diff | tee ../ansible.txt
+          { echo '### ansible --check --diff'; echo '```'; cat ../ansible.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+
+  apply:
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    needs: lint
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+      - uses: jdx/mise-action@v2
+      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - run: terraform -chdir=terraform init -backend-config=backend.hcl
+      - run: terraform -chdir=terraform apply -auto-approve -no-color
+      - uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_INFRA_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_INFRA_OAUTH_SECRET }}
+          tags: tag:infra-ci
+      - name: ansible-playbook
+        run: |
+          TUNNEL_TOKEN=$(terraform -chdir=terraform output -raw tunnel_token)
+          export TUNNEL_TOKEN
+          echo "::add-mask::$TUNNEL_TOKEN"
+          cd ansible && ansible-playbook site.yml

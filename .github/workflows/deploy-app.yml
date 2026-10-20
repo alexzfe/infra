@@ -1,0 +1,50 @@
+# Reusable deploy step that app repos call:
+#   uses: alexzfe/infra/.github/workflows/deploy-app.yml@main
+# Joins the tailnet as an ephemeral tag:ci node, which the ACL only lets in as `deploy`,
+# and `deploy` may only run deploy-app.
+name: deploy-app
+
+on:
+  workflow_call:
+    inputs:
+      app:
+        type: string
+        required: true
+      env:
+        description: staging or prod
+        type: string
+        required: true
+      tag:
+        description: Image tag to run (the commit SHA)
+        type: string
+        required: true
+      url:
+        description: Public URL to smoke-test after the deploy
+        type: string
+        required: true
+    secrets:
+      TS_CI_OAUTH_CLIENT_ID:
+        required: true
+      TS_CI_OAUTH_SECRET:
+        required: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: ${{ inputs.env }}
+      url: ${{ inputs.url }}
+    steps:
+      - uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_CI_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_CI_OAUTH_SECRET }}
+          tags: tag:ci
+
+      - name: deploy-app ${{ inputs.app }} ${{ inputs.env }} ${{ inputs.tag }}
+        run: |
+          ssh -o StrictHostKeyChecking=no deploy@xlobax-vps \
+            sudo /usr/local/bin/deploy-app "${{ inputs.app }}" "${{ inputs.env }}" "${{ inputs.tag }}"
+
+      - name: Smoke test through Cloudflare
+        run: curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 3 -o /dev/null "${{ inputs.url }}"

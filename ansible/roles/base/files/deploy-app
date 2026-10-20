@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+# Usage: sudo deploy-app <app> <staging|prod> <image-tag>
+# Switches one app to an image tag, waits for its health check, and rolls back to the previous tag if it fails.
+set -euo pipefail
+
+die() { echo "deploy-app: $*" >&2; exit 1; }
+
+[[ $# -eq 3 ]] || die "usage: deploy-app <app> <staging|prod> <image-tag>"
+app=$1 env=$2 tag=$3
+[[ $app =~ ^[a-z0-9-]+$ ]] || die "bad app name: $app"
+[[ $env == staging || $env == prod ]] || die "env must be staging or prod"
+[[ $tag =~ ^[A-Za-z0-9_.-]+$ ]] || die "bad tag: $tag"
+
+dir=/opt/apps/$app-$env
+[[ -f $dir/compose.yml ]] || die "unknown app: $app-$env (is it in sites.yml?)"
+cd "$dir"
+
+prev=$(sed -n 's/^IMAGE_TAG=//p' .env 2>/dev/null || true)
+
+up() {
+  IMAGE_TAG=$1 docker compose pull --quiet &&
+    IMAGE_TAG=$1 docker compose up --detach --wait --wait-timeout 90
+}
+
+echo "deploying $app-$env: ${prev:-<none>} -> $tag"
+if up "$tag"; then
+  echo "IMAGE_TAG=$tag" > .env
+  docker image prune --all --force --filter until=336h > /dev/null
+  echo "ok: $app-$env is running $tag"
+  exit 0
+fi
+
+echo "health check failed for $tag; last logs:" >&2
+docker compose logs --tail 50 >&2 || true
+if [[ -n $prev ]]; then
+  echo "rolling back to $prev" >&2
+  up "$prev" || echo "rollback to $prev failed too" >&2
+fi
+exit 1

@@ -1,0 +1,25 @@
+# Managed by Ansible from sites.yml. IMAGE_TAG is set by deploy-app.
+name: {{ app.name }}-{{ env }}
+
+services:
+  app:
+    image: {{ app.image }}:${IMAGE_TAG:?run deploy-app to set IMAGE_TAG}
+    restart: unless-stopped
+{% if env == 'staging' %}
+    # Staging shares the box with prod; cap it so it can't starve prod.
+    mem_limit: {{ app.staging_mem_limit | default('256m') }}
+{% endif %}
+    healthcheck:
+      test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:{{ app.port }}{{ app.health_path | default('/') }}"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+      start_period: 10s
+    networks:
+      edge:
+        aliases:
+          - {{ app.name }}-{{ env }}
+
+networks:
+  edge:
+    external: true

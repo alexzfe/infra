@@ -1,0 +1,22 @@
+# Lays out /opt/apps/<app>-<env>/compose.yml for every app in sites.yml. It never starts or retags an app:
+# the first `deploy-app` call from the app's CI does that.
+- name: Create app directories
+  ansible.builtin.file:
+    path: /opt/apps/{{ item.0.name }}-{{ item.1 }}
+    state: directory
+    mode: "0755"
+  loop: "{{ apps | product(['staging', 'prod']) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}-{{ item.1 }}"
+
+- name: Write app compose files
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: /opt/apps/{{ item.0.name }}-{{ item.1 }}/compose.yml
+    mode: "0644"
+  vars:
+    app: "{{ item.0 }}"
+    env: "{{ item.1 }}"
+  loop: "{{ apps | product(['staging', 'prod']) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}-{{ item.1 }}"

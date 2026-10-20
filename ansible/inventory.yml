@@ -1,0 +1,6 @@
+# Reached over Tailscale SSH by MagicDNS name; port 22 is closed on the public internet.
+all:
+  hosts:
+    xlobax-vps:
+      ansible_host: xlobax-vps
+      ansible_user: root

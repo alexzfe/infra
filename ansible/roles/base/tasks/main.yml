@@ -1,0 +1,54 @@
+- name: Install base packages
+  ansible.builtin.apt:
+    name:
+      - ca-certificates
+      - curl
+      - unattended-upgrades
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Enable unattended upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/20auto-upgrades
+    mode: "0644"
+    content: |
+      APT::Periodic::Update-Package-Lists "1";
+      APT::Periodic::Unattended-Upgrade "1";
+
+- name: Reboot for kernel updates at a quiet hour
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/52unattended-upgrades-local
+    mode: "0644"
+    content: |
+      Unattended-Upgrade::Automatic-Reboot "true";
+      Unattended-Upgrade::Automatic-Reboot-Time "09:00";
+
+# Tailscale SSH replaces OpenSSH. Break-glass access is the Hetzner web console.
+- name: Disable OpenSSH
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: stopped
+    enabled: false
+  loop:
+    - ssh.socket
+    - ssh.service
+
+- name: Create the deploy user
+  ansible.builtin.user:
+    name: deploy
+    shell: /bin/bash
+
+- name: Install deploy-app
+  ansible.builtin.copy:
+    src: deploy-app
+    dest: /usr/local/bin/deploy-app
+    mode: "0755"
+
+# deploy may run deploy-app and nothing else: it can switch an app to another tag of its own image,
+# not run arbitrary containers. (Adding it to the docker group would make it root-equivalent.)
+- name: Let deploy run deploy-app as root
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/deploy
+    mode: "0440"
+    content: "deploy ALL=(root) NOPASSWD: /usr/local/bin/deploy-app\n"
+    validate: visudo -cf %s

@@ -1,0 +1,6 @@
+#cloud-config
+# Just enough to get onto the tailnet; Ansible does everything else over Tailscale SSH.
+package_update: true
+runcmd:
+  - curl -fsSL https://tailscale.com/install.sh | sh
+  - tailscale up --auth-key=${tailscale_auth_key} --ssh --hostname=${hostname}
