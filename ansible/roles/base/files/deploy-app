@@ -15,6 +15,10 @@ dir=/opt/apps/$app-$env
 [[ -f $dir/compose.yml ]] || die "unknown app: $app-$env (is it in sites.yml?)"
 cd "$dir"
 
+# One deploy per app-env at a time; a second one waits its turn instead of racing on .env.
+exec 9> .deploy.lock
+flock --timeout 300 9 || die "another deploy of $app-$env is still running"
+
 prev=$(sed -n 's/^IMAGE_TAG=//p' .env 2>/dev/null || true)
 
 up() {

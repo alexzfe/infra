@@ -31,6 +31,10 @@ on:
 jobs:
   deploy:
     runs-on: ubuntu-latest
+    # Deploys of one app-env run in order; a newer pending one replaces an older pending one.
+    concurrency:
+      group: deploy-${{ inputs.app }}-${{ inputs.env }}
+      cancel-in-progress: false
     environment:
       name: ${{ inputs.env }}
       url: ${{ inputs.url }}
@@ -41,10 +45,16 @@ jobs:
           oauth-secret: ${{ secrets.TS_CI_OAUTH_SECRET }}
           tags: tag:ci
 
+      # Inputs go through env, never straight into the script, so a value can't inject shell code.
       - name: deploy-app ${{ inputs.app }} ${{ inputs.env }} ${{ inputs.tag }}
-        run: |
-          ssh -o StrictHostKeyChecking=no deploy@xlobax-vps \
-            sudo /usr/local/bin/deploy-app "${{ inputs.app }}" "${{ inputs.env }}" "${{ inputs.tag }}"
+        env:
+          APP: ${{ inputs.app }}
+          APP_ENV: ${{ inputs.env }}
+          TAG: ${{ inputs.tag }}
+        # deploy's login shell turns this into `sudo deploy-app ...` and refuses anything else.
+        run: ssh -o StrictHostKeyChecking=no deploy@xlobax-vps deploy-app "$APP" "$APP_ENV" "$TAG"
 
       - name: Smoke test through Cloudflare
-        run: curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 3 -o /dev/null "${{ inputs.url }}"
+        env:
+          URL: ${{ inputs.url }}
+        run: curl --fail --silent --show-error --retry 5 --retry-all-errors --retry-delay 3 -o /dev/null "$URL"
