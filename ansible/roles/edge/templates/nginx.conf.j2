@@ -52,7 +52,11 @@ server {
 {% endif %}
 
     location / {
-{{ proxy_to(app, env) }}    }
+{{ proxy_to(app, env) }}        # nginx drops a connection after 60s without traffic, which kills idle WebSockets (a game waiting on a
+        # player). Allow an hour here; apps should still ping every ~30s, since Cloudflare closes idle ones too.
+        proxy_read_timeout 1h;
+        proxy_send_timeout 1h;
+    }
 {% for path in app.stream_paths | default([]) %}
 
     # Server-Sent Events: pass each event on as it comes, and outlast the app's keep-alives.
