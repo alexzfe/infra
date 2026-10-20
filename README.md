@@ -129,5 +129,4 @@ tag `tag:server`, and run Ansible. Nothing else changes.
 
 - Maybe a separate domain for public projects, which would remove the Pi-hole exception step.
 - Rename the arcade's `catan` / `monopoly` slugs to their parody names.
-- Pin `cloudflared` to a version instead of `latest`.
 - Backups for any app that keeps state, and uptime alerts.
