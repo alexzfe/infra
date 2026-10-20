@@ -89,7 +89,10 @@ jobs:
             tailscale ping -c 1 --timeout 5s xlobax-vps > /dev/null 2>&1 && break
             sleep 5
           done
-          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@xlobax-vps cloud-init status --wait
+          # Exit 2 = "done, with recoverable errors": Hetzner's own vendor-data triggers deprecation warnings.
+          rc=0
+          ssh -o StrictHostKeyChecking=no -o ConnectTimeout=30 root@xlobax-vps cloud-init status --wait || rc=$?
+          [ "$rc" -eq 0 ] || [ "$rc" -eq 2 ]
       - name: ansible-playbook
         run: |
           TUNNEL_TOKEN=$(terraform -chdir=terraform output -raw tunnel_token)
