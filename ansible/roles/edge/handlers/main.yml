@@ -1,6 +1,6 @@
-- name: Restart caddy
-  community.docker.docker_compose_v2:
-    project_src: /opt/edge
-    services:
-      - caddy
-    state: restarted
+# Test the new config before reloading: a bad config fails the play and nginx keeps serving the old one.
+- name: Reload nginx
+  ansible.builtin.command:
+    cmd: docker compose exec -T nginx sh -c 'nginx -t && nginx -s reload'
+    chdir: /opt/edge
+  changed_when: true

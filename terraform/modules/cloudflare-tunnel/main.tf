@@ -27,7 +27,7 @@ variable "hostnames" {
 }
 
 variable "origin" {
-  description = "Where cloudflared sends every request; Caddy routes by Host from there."
+  description = "Where cloudflared sends every request; the edge proxy (nginx) routes by Host from there."
   type        = string
 }
 

@@ -29,5 +29,5 @@ module "tunnel" {
   account_id = var.cloudflare_account_id
   zone_id    = var.cloudflare_zone_id
   hostnames  = local.hostnames
-  origin     = "http://caddy:80"
+  origin     = "http://proxy:80"
 }

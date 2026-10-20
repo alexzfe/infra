@@ -1,16 +1,18 @@
-# Managed by Ansible. Nothing publishes a port: cloudflared dials out to Cloudflare and reaches Caddy
+# Managed by Ansible. Nothing publishes a port: cloudflared dials out to Cloudflare and reaches nginx
 # over the internal `edge` network, which every app joins too.
 name: edge
 
 services:
-  caddy:
-    image: {{ edge_caddy_image }}
+  nginx:
+    image: {{ edge_nginx_image }}
     restart: unless-stopped
     volumes:
-      - ./Caddyfile:/etc/caddy/Caddyfile:ro
-      - caddy_data:/data
+      - ./nginx.conf:/etc/nginx/conf.d/default.conf:ro
     networks:
-      - edge
+      edge:
+        # The tunnel's origin is http://proxy:80, so swapping the proxy never touches Terraform.
+        aliases:
+          - proxy
 
   cloudflared:
     image: {{ edge_cloudflared_image }}
@@ -19,13 +21,10 @@ services:
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
     depends_on:
-      - caddy
+      - nginx
     networks:
       - edge
 
 networks:
   edge:
     name: edge
-
-volumes:
-  caddy_data:

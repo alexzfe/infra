@@ -1,3 +1,3 @@
 # Bump these deliberately (in a PR) rather than tracking latest.
-edge_caddy_image: caddy:2.10-alpine
+edge_nginx_image: nginx:1.28-alpine
 edge_cloudflared_image: cloudflare/cloudflared:latest
