@@ -28,6 +28,7 @@ env:
   AWS_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
   AWS_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
   ANSIBLE_HOST_KEY_CHECKING: "False" # identity comes from Tailscale, and host keys change on rebuild
+  TF_PLUGIN_CACHE_DIR: /home/runner/.terraform.d/plugin-cache
 
 jobs:
   lint:
@@ -35,19 +36,41 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
-      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - id: collections
+        uses: actions/cache@v4
+        with:
+          path: ~/.ansible/collections
+          key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
+      - if: steps.collections.outputs.cache-hit != 'true'
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+      - uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-providers-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+      - run: mkdir -p "$TF_PLUGIN_CACHE_DIR" # Terraform won't create it on a cache miss
       - run: terraform -chdir=terraform fmt -check -recursive
       - run: terraform -chdir=terraform init -backend=false && terraform -chdir=terraform validate
       - run: cd ansible && ansible-lint site.yml
 
+  # Runs alongside lint rather than after it; both are required checks on main.
   plan:
     if: github.event_name == 'pull_request'
-    needs: lint
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
-      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - id: collections
+        uses: actions/cache@v4
+        with:
+          path: ~/.ansible/collections
+          key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
+      - if: steps.collections.outputs.cache-hit != 'true'
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+      - uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-providers-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+      - run: mkdir -p "$TF_PLUGIN_CACHE_DIR" # Terraform won't create it on a cache miss
       - run: terraform -chdir=terraform init -backend-config=backend.hcl
       - name: terraform plan
         run: |
@@ -74,7 +97,18 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: jdx/mise-action@v2
-      - run: ansible-galaxy collection install -r ansible/requirements.yml
+      - id: collections
+        uses: actions/cache@v4
+        with:
+          path: ~/.ansible/collections
+          key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
+      - if: steps.collections.outputs.cache-hit != 'true'
+        run: ansible-galaxy collection install -r ansible/requirements.yml
+      - uses: actions/cache@v4
+        with:
+          path: ~/.terraform.d/plugin-cache
+          key: terraform-providers-${{ hashFiles('terraform/.terraform.lock.hcl') }}
+      - run: mkdir -p "$TF_PLUGIN_CACHE_DIR" # Terraform won't create it on a cache miss
       - run: terraform -chdir=terraform init -backend-config=backend.hcl
       - run: terraform -chdir=terraform apply -auto-approve -no-color
       - uses: tailscale/github-action@v3
