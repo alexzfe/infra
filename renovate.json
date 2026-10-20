@@ -1,0 +1,14 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended", "helpers:pinGitHubActionDigests"],
+  "minimumReleaseAge": "7 days",
+  "customManagers": [
+    {
+      "description": "Edge images pinned in Ansible defaults",
+      "customType": "regex",
+      "managerFilePatterns": ["/^ansible/roles/edge/defaults/main\\.yml$/"],
+      "matchStrings": ["_image: (?<depName>[^:\\s]+):(?<currentValue>\\S+)"],
+      "datasourceTemplate": "docker"
+    }
+  ]
+}
