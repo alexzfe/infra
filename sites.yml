@@ -1,5 +1,5 @@
 # The public sites on the VPS. The one list both halves read:
-# Terraform turns it into DNS records and tunnel routes, Ansible into Caddy routes and compose files.
+# Terraform turns it into DNS records and tunnel routes, Ansible into nginx routes and compose files.
 #
 # Hostnames stay one level under xlobax.com (`arcade-staging`, not `arcade.staging`): Cloudflare's free
 # Universal SSL certificate covers `*.xlobax.com` only, so a deeper name would fail TLS.

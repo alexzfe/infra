@@ -3,7 +3,7 @@
 Everything that runs my public projects on one VPS, in code. If the server dies, this repo rebuilds it.
 
 ```
-visitor ──HTTPS──▶ Cloudflare (CDN, TLS) ──tunnel──▶ cloudflared ─▶ Caddy ─▶ app containers
+visitor ──HTTPS──▶ Cloudflare (CDN, TLS) ──tunnel──▶ cloudflared ─▶ nginx ─▶ app containers
                                                       └──────────── Hetzner CX23 ───────────┘
 me / CI ──Tailscale SSH──▶ same box            (no inbound ports open to the internet)
 ```
@@ -13,7 +13,7 @@ me / CI ──Tailscale SSH──▶ same box            (no inbound ports open 
 | `sites.yml` | repo root | The list of apps and hostnames. Both Terraform and Ansible read it. |
 | `terraform/` | Hetzner, Cloudflare, Tailscale | Server + deny-all firewall, tunnel + its routes, proxied DNS records, the server's join key. State in R2. |
 | `terraform/modules/hetzner-server` | | The only provider-specific code. Swap it to move to OVH or anywhere else. |
-| `ansible/` | the VPS | Updates, OpenSSH off, Docker, Caddy + cloudflared (`/opt/edge`), one compose project per app per env (`/opt/apps/<app>-<env>`). |
+| `ansible/` | the VPS | Updates, OpenSSH off, Docker, nginx + cloudflared (`/opt/edge`), one compose project per app per env (`/opt/apps/<app>-<env>`). |
 | `deploy-app` | `/usr/local/bin` on the VPS | `sudo deploy-app <app> <staging\|prod> <sha>`: pull, start, wait for health, roll back on failure. |
 | `.github/workflows/infra.yml` | CI | PR → lint, `terraform plan`, `ansible --check --diff`. Merge → apply both. |
 | `.github/workflows/deploy-app.yml` | CI, called by app repos | Joins the tailnet as `tag:ci`, runs `deploy-app`, smoke-tests the public URL. |
@@ -108,7 +108,7 @@ From then on, infra changes go through PRs like app code.
 
 ## Adding an app
 
-1. Add it to `sites.yml` and merge. CI creates the DNS records, tunnel routes, Caddy routes and compose files.
+1. Add it to `sites.yml` and merge. CI creates the DNS records, tunnel routes, nginx routes and compose files.
 2. In the app repo, copy `templates/app-release.yml` to `.github/workflows/release.yml` and adjust the names and
    URLs. Add a Dockerfile that serves on `:8080` (`templates/static-site.Dockerfile` for static sites).
 3. Add the `TS_CI_OAUTH_CLIENT_ID` / `TS_CI_OAUTH_SECRET` secrets to the app repo.

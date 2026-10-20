@@ -10,12 +10,12 @@
     state: directory
     mode: "0755"
 
-- name: Write the Caddyfile
+- name: Write the nginx config
   ansible.builtin.template:
-    src: Caddyfile.j2
-    dest: /opt/edge/Caddyfile
+    src: nginx.conf.j2
+    dest: /opt/edge/nginx.conf
     mode: "0644"
-  notify: Restart caddy
+  notify: Reload nginx
 
 - name: Write the edge compose file
   ansible.builtin.template:
@@ -30,8 +30,20 @@
     mode: "0600"
   no_log: true
 
-- name: Start Caddy and cloudflared
+# remove_orphans takes down services that left the compose file (Caddy, before nginx).
+- name: Start nginx and cloudflared
   community.docker.docker_compose_v2:
     project_src: /opt/edge
     state: present
     pull: missing
+    remove_orphans: true
+
+- name: Remove Caddy leftovers
+  ansible.builtin.file:
+    path: /opt/edge/Caddyfile
+    state: absent
+
+- name: Remove Caddy's data volume
+  community.docker.docker_volume:
+    name: edge_caddy_data
+    state: absent
