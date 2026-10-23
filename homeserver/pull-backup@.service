@@ -1,0 +1,14 @@
+# pull-backup <app>, once; started nightly by pull-backup@<app>.timer.
+[Unit]
+Description=Pull the nightly %i backup from the VPS
+Requires=tailscaled-backup.service
+After=tailscaled-backup.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/pull-backup %i
+Environment=BACKUP_DIR=/srv/backups
+UMask=0077
+ProtectSystem=strict
+ReadWritePaths=/srv/backups
+PrivateTmp=true

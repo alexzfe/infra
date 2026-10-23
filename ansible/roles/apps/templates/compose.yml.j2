@@ -9,12 +9,24 @@ services:
     # Staging shares the box with prod; cap it so it can't starve prod.
     mem_limit: {{ app.staging_mem_limit | default('256m') }}
 {% endif %}
+{% if app.env is defined %}
+    environment:
+{% for key, value in app.env.items() %}
+      {{ key }}: {{ (value | string | replace('{host}', app.hosts[env]) | replace('$', '$$')) | to_json }}
+{% endfor %}
+{% endif %}
+{% if app.volume is defined %}
+    volumes:
+      - data:{{ app.volume }}
+{% endif %}
+{% if app.healthcheck | default('') != 'image' %}
     healthcheck:
       test: ["CMD", "wget", "-qO", "/dev/null", "http://127.0.0.1:{{ app.port }}{{ app.health_path | default('/') }}"]
       interval: 10s
       timeout: 3s
       retries: 3
       start_period: 10s
+{% endif %}
     networks:
       edge:
         aliases:
@@ -23,3 +35,11 @@ services:
 networks:
   edge:
     external: true
+{% if app.volume is defined %}
+
+# Created by Ansible, not compose, so no compose command (`down --volumes` included) can delete it.
+volumes:
+  data:
+    name: {{ app.name }}-{{ env }}-data
+    external: true
+{% endif %}

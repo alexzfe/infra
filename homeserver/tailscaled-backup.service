@@ -1,0 +1,16 @@
+# A second tailscaled on the homeserver, tagged tag:backup, used only by pull-backup. Userspace networking: no
+# network interface, routes or DNS changes, so it can't disturb the homeserver's own tailscaled.
+[Unit]
+Description=Tailscale node for pulling backups (tag:backup)
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+ExecStart=/usr/sbin/tailscaled --tun=userspace-networking --port=0 --statedir=/var/lib/tailscale-backup --socket=/run/tailscale-backup/tailscaled.sock
+RuntimeDirectory=tailscale-backup
+StateDirectory=tailscale-backup
+StateDirectoryMode=0700
+Restart=on-failure
+
+[Install]
+WantedBy=multi-user.target

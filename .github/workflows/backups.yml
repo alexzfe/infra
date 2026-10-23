@@ -1,0 +1,44 @@
+# Daily: has the homeserver stored a backup of every app that has one (`backup` in sites.yml) in the last 26 hours?
+# The homeserver's pull-backup marks each one stored on the VPS once the archive is checked and on its disk, so a
+# failed pull, a homeserver that's off, or a broken tailnet all show up here. GitHub emails on failure.
+# Read-only, so it doesn't share the `infra` concurrency group.
+name: backups
+
+on:
+  schedule:
+    - cron: "23 14 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: tailscale/github-action@v3
+        with:
+          oauth-client-id: ${{ secrets.TS_INFRA_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_INFRA_OAUTH_SECRET }}
+          tags: tag:infra-ci
+      - name: Every backup stored in the last 26 hours
+        run: |
+          ssh -o StrictHostKeyChecking=no root@xlobax-vps bash -s <<'EOF' | tee -a "$GITHUB_STEP_SUMMARY"
+          shopt -s nullglob
+          stale=0
+          for cmd in /opt/apps/*-prod/backup; do
+            app=${cmd#/opt/apps/}; app=${app%-prod/backup}
+            mark=/var/lib/backup-app/$app.stored
+            if [[ -n $(find "$mark" -mmin -1560 2> /dev/null) ]]; then
+              echo "ok: $app, stored $(date -u -r "$mark" '+%F %R UTC')"
+            else
+              echo "STALE: $app, last stored $(date -u -r "$mark" '+%F %R UTC' 2> /dev/null || echo never)"
+              stale=1
+            fi
+          done
+          exit "$stale"
+          EOF

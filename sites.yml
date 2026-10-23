@@ -5,6 +5,18 @@
 # Universal SSL certificate covers `*.xlobax.com` only, so a deeper name would fail TLS.
 #
 # Each app's image serves plain HTTP on `port` and answers `health_path` with a 2xx once it's ready.
+#
+# Optional, for apps that need more than a static site:
+#   volume             Container path of a persistent volume, `<app>-<env>-data`. Ansible creates it and deploys
+#                      never remove it, so it survives every deploy and rollback.
+#   env                Plain environment variables, for both envs. `{host}` becomes that env's hostname. Not for
+#                      secrets: this repo is public.
+#   healthcheck: image Use the image's own HEALTHCHECK instead of wget on `health_path` (images without wget).
+#   staging_mem_limit  Staging's memory cap (default 256m).
+#   max_body_size      nginx's `client_max_body_size` (default 1m).
+#   stream_paths       Paths that stream responses (Server-Sent Events): no proxy buffering, long read timeout.
+#   backup             Command, run in the prod container, that writes a backup archive to stdout. The homeserver
+#                      pulls it nightly (see homeserver/).
 apps:
   - name: website
     image: ghcr.io/alexzfe/personal-website
@@ -21,3 +33,24 @@ apps:
     hosts:
       prod: arcade.xlobax.com
       staging: arcade-staging.xlobax.com
+
+  - name: settle
+    image: ghcr.io/alexzfe/settle
+    port: 4380
+    health_path: /health
+    healthcheck: image
+    # A login hashes with scrypt at 128 MiB; 256m would leave too little for the server itself.
+    staging_mem_limit: 512m
+    # Documents and Blueprints go up to 51 MiB.
+    max_body_size: 64m
+    stream_paths:
+      - /events
+    volume: /data
+    env:
+      SETTLE_PUBLIC_ORIGIN: https://{host}
+      # The origin is reachable through Cloudflare alone, so CF-Connecting-IP is the visitor.
+      SETTLE_TRUSTED_PROXY: cloudflare
+    backup: [node, packages/server/dist/backup.js]
+    hosts:
+      prod: settle.xlobax.com
+      staging: settle-staging.xlobax.com
