@@ -1,0 +1,11 @@
+[Unit]
+Description=Pull the %i backup from the VPS every night
+
+[Timer]
+OnCalendar=*-*-* 03:30
+RandomizedDelaySec=15m
+# Run at boot if the homeserver was off at 03:30.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

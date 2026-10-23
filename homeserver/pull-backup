@@ -1,0 +1,49 @@
+#!/usr/bin/env bash
+# Usage: pull-backup <app>
+# Pulls last night's backup of an app's prod instance from the VPS, keeps 14 daily and 8 weekly copies, and tells
+# the VPS it's stored (the CI's backups workflow alerts when that mark gets old). Runs on the homeserver, from
+# pull-backup@.service; it connects through the tag:backup node, never the homeserver's own tailscaled.
+set -euo pipefail
+
+die() { echo "pull-backup: $*" >&2; exit 1; }
+
+[[ $# -eq 1 && $1 =~ ^[a-z0-9-]+$ ]] || die "usage: pull-backup <app>"
+app=$1
+dir=${BACKUP_DIR:-/srv/backups}/$app
+socket=${TAILSCALE_SOCKET:-/run/tailscale-backup/tailscaled.sock}
+keep_daily=14
+keep_weekly=8
+
+vps() {
+  # No host key check: Tailscale already proved who xlobax-vps is, and its host keys change on every rebuild.
+  ssh -F /dev/null -o BatchMode=yes -o StrictHostKeyChecking=no -o UserKnownHostsFile=/dev/null -o LogLevel=ERROR \
+    -o ProxyCommand="tailscale --socket=$socket nc %h %p" backup-pull@xlobax-vps "$@"
+}
+
+mkdir -p "$dir/daily" "$dir/weekly"
+partial=$dir/.partial.tgz
+trap 'rm -f "$partial"' EXIT
+
+vps backup-app "$app" > "$partial"
+# A cut-off or empty stream fails here, tonight, rather than on the day it's needed.
+[[ -n $(tar -tzf "$partial" | head -n 1) ]] || die "the archive from the VPS is empty"
+
+daily=$dir/daily/$app-$(date +%F).tgz
+mv "$partial" "$daily"
+# The first backup of each ISO week is that week's copy: a hard link, so it costs no space.
+weekly=$dir/weekly/$app-$(date +%G-W%V).tgz
+[[ -e $weekly ]] || ln "$daily" "$weekly"
+
+# Names sort by date, newest first after `sort -r`; everything past the newest N goes.
+prune() {
+  local keep=$1 files
+  shift
+  mapfile -t files < <(printf '%s\n' "$@" | sort -r)
+  if (( ${#files[@]} > keep )); then rm -f -- "${files[@]:keep}"; fi
+}
+shopt -s nullglob
+prune "$keep_daily" "$dir/daily/$app-"*.tgz
+prune "$keep_weekly" "$dir/weekly/$app-"*.tgz
+
+vps backup-app "$app" stored
+echo "stored $daily ($(du -h "$daily" | cut -f1))"

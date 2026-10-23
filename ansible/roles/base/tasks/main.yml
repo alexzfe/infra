@@ -52,3 +52,27 @@
     mode: "0440"
     content: "deploy ALL=(root) NOPASSWD: /usr/local/bin/deploy-app\n"
     validate: visudo -cf %s
+
+# The homeserver pulls nightly backups as backup-pull (Tailscale SSH, tag:backup). Its login shell accepts only
+# `backup-app <app> [stored]`, so a stolen homeserver can read a backup and nothing more. Not `backup`: Ubuntu
+# already has a system user by that name.
+- name: Install backup-app and backup-shell
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /usr/local/bin/{{ item }}
+    mode: "0755"
+  loop:
+    - backup-app
+    - backup-shell
+
+- name: Create the backup-pull user
+  ansible.builtin.user:
+    name: backup-pull
+    shell: /usr/local/bin/backup-shell
+
+- name: Let backup-pull run backup-app as root
+  ansible.builtin.copy:
+    dest: /etc/sudoers.d/backup-pull
+    mode: "0440"
+    content: "backup-pull ALL=(root) NOPASSWD: /usr/local/bin/backup-app\n"
+    validate: visudo -cf %s

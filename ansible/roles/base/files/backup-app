@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Usage: sudo backup-app <app>           writes a backup of the app's prod instance to stdout
+#        sudo backup-app <app> stored    records that the homeserver has stored that backup
+# The homeserver pulls nightly as `backup-pull`, whose login shell (backup-shell) allows nothing else. The CI's
+# backups workflow alerts when an app's `stored` mark gets old.
+set -euo pipefail
+
+die() { echo "backup-app: $*" >&2; exit 1; }
+
+[[ $# -eq 1 || ( $# -eq 2 && $2 == stored ) ]] || die "usage: backup-app <app> [stored]"
+app=$1
+[[ $app =~ ^[a-z0-9-]+$ ]] || die "bad app name: $app"
+
+cmd=/opt/apps/$app-prod/backup
+[[ -x $cmd ]] || die "no backup for $app (does it set backup in sites.yml?)"
+
+if [[ $# -eq 2 ]]; then
+  mkdir -p /var/lib/backup-app
+  touch "/var/lib/backup-app/$app.stored"
+  exit 0
+fi
+
+[[ -t 1 ]] && die "refusing to write an archive to a terminal"
+exec "$cmd"

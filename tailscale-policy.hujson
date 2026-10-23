@@ -4,6 +4,9 @@
 		"tag:server":   ["autogroup:admin", "tag:infra-ci"],
 		"tag:infra-ci": ["autogroup:admin"],
 		"tag:ci":       ["autogroup:admin"],
+		// The homeserver's backup puller: a second, userspace tailscaled there (homeserver/README.md), not the
+		// homeserver itself, which stays an ordinary member device.
+		"tag:backup":   ["autogroup:admin"],
 	},
 
 	"grants": [
@@ -11,6 +14,8 @@
 		{"src": ["autogroup:member", "autogroup:shared"], "dst": ["*"], "ip": ["*"]},
 		// CI may reach only the VPS, and only SSH. Nothing at home.
 		{"src": ["tag:infra-ci", "tag:ci"], "dst": ["tag:server"], "ip": ["tcp:22"]},
+		// The backup puller may reach only the VPS's SSH, and only as backup-pull (below).
+		{"src": ["tag:backup"], "dst": ["tag:server"], "ip": ["tcp:22"]},
 	],
 
 	"ssh": [
@@ -18,10 +23,16 @@
 		{"action": "accept", "src": ["autogroup:admin"], "dst": ["tag:server"], "users": ["root", "deploy"]},
 		{"action": "accept", "src": ["tag:infra-ci"], "dst": ["tag:server"], "users": ["root"]},
 		{"action": "accept", "src": ["tag:ci"], "dst": ["tag:server"], "users": ["deploy"]},
+		{"action": "accept", "src": ["tag:backup"], "dst": ["tag:server"], "users": ["backup-pull"]},
 	],
 
 	"tests": [
 		{"src": "tag:ci", "accept": ["tag:server:22"], "deny": ["tag:server:80"]},
 		{"src": "tag:infra-ci", "accept": ["tag:server:22"]},
+		{"src": "tag:backup", "accept": ["tag:server:22"], "deny": ["tag:server:80", "tag:ci:22", "tag:infra-ci:22"]},
+	],
+
+	"sshTests": [
+		{"src": "tag:backup", "dst": ["tag:server"], "accept": ["backup-pull"], "deny": ["root", "deploy"]},
 	],
 }

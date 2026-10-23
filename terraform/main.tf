@@ -31,3 +31,20 @@ module "tunnel" {
   hostnames  = local.hostnames
   origin     = "http://proxy:80"
 }
+
+# HSTS, zone-wide. Cloudflare adds the header only to traffic it proxies, which is every hostname in sites.yml and
+# all of it https. No includeSubDomains: the home `*.xlobax.com` wildcard is DNS-only, straight to the homeserver,
+# and anything there without a certificate would become unreachable in browsers that had seen the header.
+resource "cloudflare_zone_setting" "hsts" {
+  zone_id    = var.cloudflare_zone_id
+  setting_id = "security_header"
+  value = {
+    strict_transport_security = {
+      enabled            = true
+      max_age            = 15552000 # 180 days
+      include_subdomains = false
+      preload            = false
+      nosniff            = false # this resource only means to turn on HSTS
+    }
+  }
+}

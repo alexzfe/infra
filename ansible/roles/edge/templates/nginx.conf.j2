@@ -26,17 +26,8 @@ server {
     listen 80 default_server;
     return 404;
 }
-{% for app in apps %}
-{% for env in ['prod', 'staging'] %}
-
-server {
-    listen 80;
-    server_name {{ app.hosts[env] }};
-{% if env == 'staging' %}
-    add_header X-Robots-Tag "noindex, nofollow" always;
-{% endif %}
-
-    location / {
+{# One location's proxying to an app. Request headers pass through as sent, CF-Connecting-IP included. #}
+{% macro proxy_to(app, env) %}
         set $upstream http://{{ app.name }}-{{ env }}:{{ app.port }};
         proxy_pass $upstream;
         proxy_http_version 1.1;
@@ -46,7 +37,30 @@ server {
         proxy_set_header X-Forwarded-Proto https;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection $connection_upgrade;
+{% endmacro %}
+{% for app in apps %}
+{% for env in ['prod', 'staging'] %}
+
+server {
+    listen 80;
+    server_name {{ app.hosts[env] }};
+{% if env == 'staging' %}
+    add_header X-Robots-Tag "noindex, nofollow" always;
+{% endif %}
+{% if app.max_body_size is defined %}
+    client_max_body_size {{ app.max_body_size }};
+{% endif %}
+
+    location / {
+{{ proxy_to(app, env) }}    }
+{% for path in app.stream_paths | default([]) %}
+
+    # Server-Sent Events: pass each event on as it comes, and outlast the app's keep-alives.
+    location = {{ path }} {
+{{ proxy_to(app, env) }}        proxy_buffering off;
+        proxy_read_timeout 1h;
     }
+{% endfor %}
 }
 {% endfor %}
 {% endfor %}

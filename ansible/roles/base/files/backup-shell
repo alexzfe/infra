@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+# Login shell for `backup-pull`, the homeserver's nightly pull. Tailscale SSH starts it as
+# `backup-shell -c "<command>"`; the only command it accepts is `backup-app <app> [stored]`, which it runs
+# through sudo. No interactive shell, nothing else.
+set -euo pipefail
+
+die() { echo "backup-pull: only 'backup-app <app> [stored]' is allowed" >&2; exit 1; }
+
+[[ $# -eq 2 && $1 == -c ]] || die
+read -r -a words <<< "$2"
+[[ ${#words[@]} -ge 2 && ${#words[@]} -le 3 && ${words[0]} == backup-app ]] || die
+# backup-app validates its own arguments.
+exec sudo /usr/local/bin/backup-app "${words[@]:1}"

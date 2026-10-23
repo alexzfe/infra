@@ -9,6 +9,15 @@
   loop_control:
     label: "{{ item.0.name }}-{{ item.1 }}"
 
+# Before the compose files that name them: compose refuses to start an app whose external volume is missing.
+# Never removed here, even when an app leaves sites.yml; deleting data is done by hand.
+- name: Create app data volumes
+  community.docker.docker_volume:
+    name: "{{ item.0.name }}-{{ item.1 }}-data"
+  loop: "{{ apps | selectattr('volume', 'defined') | product(['staging', 'prod']) | list }}"
+  loop_control:
+    label: "{{ item.0.name }}-{{ item.1 }}-data"
+
 - name: Write app compose files
   ansible.builtin.template:
     src: compose.yml.j2
@@ -20,3 +29,13 @@
   loop: "{{ apps | product(['staging', 'prod']) | list }}"
   loop_control:
     label: "{{ item.0.name }}-{{ item.1 }}"
+
+# Prod only: staging holds nothing worth keeping. backup-app runs it for the homeserver's nightly pull.
+- name: Write app backup commands
+  ansible.builtin.template:
+    src: backup.j2
+    dest: /opt/apps/{{ item.name }}-prod/backup
+    mode: "0700"
+  loop: "{{ apps | selectattr('backup', 'defined') | list }}"
+  loop_control:
+    label: "{{ item.name }}-prod"

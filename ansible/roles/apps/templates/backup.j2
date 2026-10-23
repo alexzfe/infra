@@ -1,0 +1,4 @@
+#!/bin/sh
+# Managed by Ansible from sites.yml. Writes a backup of {{ item.name }}-prod to stdout; run through backup-app.
+cd /opt/apps/{{ item.name }}-prod || exit 1
+exec docker compose exec -T app {{ item.backup | map('quote') | join(' ') }}
