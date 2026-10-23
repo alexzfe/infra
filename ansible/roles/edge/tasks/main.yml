@@ -10,10 +10,16 @@
     state: directory
     mode: "0755"
 
+- name: Create /opt/edge/conf.d
+  ansible.builtin.file:
+    path: /opt/edge/conf.d
+    state: directory
+    mode: "0755"
+
 - name: Write the nginx config
   ansible.builtin.template:
     src: nginx.conf.j2
-    dest: /opt/edge/nginx.conf
+    dest: /opt/edge/conf.d/default.conf
     mode: "0644"
   notify: Reload nginx
 
@@ -41,6 +47,12 @@
 - name: Remove Caddy leftovers
   ansible.builtin.file:
     path: /opt/edge/Caddyfile
+    state: absent
+
+# The config lived at /opt/edge/nginx.conf until it moved into conf.d/.
+- name: Remove the old nginx config
+  ansible.builtin.file:
+    path: /opt/edge/nginx.conf
     state: absent
 
 - name: Remove Caddy's data volume
