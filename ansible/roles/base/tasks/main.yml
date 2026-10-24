@@ -50,7 +50,9 @@
       [Install]
       WantedBy=swap.target
 
+# A dry run (CI's plan) doesn't write the unit above, so systemd can't find it yet.
 - name: Enable swap
+  when: not ansible_check_mode
   ansible.builtin.systemd_service:
     name: swapfile.swap
     state: started
