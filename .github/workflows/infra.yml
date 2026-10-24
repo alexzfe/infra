@@ -8,9 +8,11 @@ on:
     branches: [main]
   workflow_dispatch:
 
+# Applies on main queue one at a time. PR runs only read, so each PR gets its own group (a new push replaces the
+# old run). Sharing one group let a PR push cancel a merge's pending apply: GitHub keeps one pending run per group.
 concurrency:
-  group: infra
-  cancel-in-progress: false
+  group: ${{ github.event_name == 'pull_request' && format('infra-pr-{0}', github.event.number) || 'infra' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
 
 permissions:
   contents: read
@@ -110,7 +112,12 @@ jobs:
           key: terraform-providers-${{ hashFiles('terraform/.terraform.lock.hcl') }}
       - run: mkdir -p "$TF_PLUGIN_CACHE_DIR" # Terraform won't create it on a cache miss
       - run: terraform -chdir=terraform init -backend-config=backend.hcl
-      - run: terraform -chdir=terraform apply -auto-approve -no-color
+      # Save the plan and apply exactly that, so the job summary shows what was actually applied.
+      - name: terraform apply
+        run: |
+          terraform -chdir=terraform plan -no-color -out=tfplan | tee plan.txt
+          { echo '### terraform plan (applied)'; echo '```'; cat plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
+          terraform -chdir=terraform apply -no-color tfplan
       - uses: tailscale/github-action@84a3f23bb4d843bcf4da6cf824ec1be473daf4de # v3.2.3
         with:
           oauth-client-id: ${{ secrets.TS_INFRA_OAUTH_CLIENT_ID }}

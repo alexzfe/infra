@@ -16,6 +16,7 @@ me / CI ──Tailscale SSH──▶ same box            (no inbound ports open 
 | `ansible/` | the VPS | Updates, OpenSSH off, Docker, nginx + cloudflared (`/opt/edge`), one compose project per app per env (`/opt/apps/<app>-<env>`). |
 | `deploy-app` | `/usr/local/bin` on the VPS | `sudo deploy-app <app> <staging\|prod> <sha>`: pull, start, wait for health, roll back on failure. One deploy per app-env at a time. |
 | `.github/workflows/infra.yml` | CI | PR → lint, `terraform plan`, `ansible --check --diff`. Merge → apply both. |
+| `.github/workflows/drift.yml` | CI, nightly | Fails (and emails) if `terraform plan` or `ansible --check` would change anything. |
 | `.github/workflows/deploy-app.yml` | CI, called by app repos | Joins the tailnet as `tag:ci`, runs `deploy-app`, smoke-tests the public URL. |
 | `.github/workflows/backups.yml` | CI, daily | Fails (and GitHub emails) if the homeserver hasn't stored an app's backup in 26 hours. |
 | `homeserver/` | copy to the homeserver | The nightly backup pull. Not managed by Ansible: installed by hand, see [Backups](#backups). |
