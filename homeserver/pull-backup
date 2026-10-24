@@ -25,8 +25,10 @@ partial=$dir/.partial.tgz
 trap 'rm -f "$partial"' EXIT
 
 vps backup-app "$app" > "$partial"
-# A cut-off or empty stream fails here, tonight, rather than on the day it's needed.
-[[ -n $(tar -tzf "$partial" | head -n 1) ]] || die "the archive from the VPS is empty"
+# A cut-off or empty stream fails here, tonight, rather than on the day it's needed. Listing the whole archive is
+# what reads it to the end: a stream cut off partway still starts with valid entries.
+entries=$(tar -tzf "$partial" | wc -l) || die "the archive from the VPS is cut off or corrupt"
+(( entries > 0 )) || die "the archive from the VPS is empty"
 
 daily=$dir/daily/$app-$(date +%F).tgz
 mv "$partial" "$daily"
