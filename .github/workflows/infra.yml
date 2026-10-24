@@ -34,16 +34,16 @@ jobs:
   lint:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - id: collections
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.ansible/collections
           key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
       - if: steps.collections.outputs.cache-hit != 'true'
         run: ansible-galaxy collection install -r ansible/requirements.yml
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.terraform.d/plugin-cache
           key: terraform-providers-${{ hashFiles('terraform/.terraform.lock.hcl') }}
@@ -57,16 +57,16 @@ jobs:
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - id: collections
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.ansible/collections
           key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
       - if: steps.collections.outputs.cache-hit != 'true'
         run: ansible-galaxy collection install -r ansible/requirements.yml
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.terraform.d/plugin-cache
           key: terraform-providers-${{ hashFiles('terraform/.terraform.lock.hcl') }}
@@ -76,7 +76,7 @@ jobs:
         run: |
           terraform -chdir=terraform plan -no-color -lock=false | tee plan.txt
           { echo '### terraform plan'; echo '```'; cat plan.txt; echo '```'; } >> "$GITHUB_STEP_SUMMARY"
-      - uses: tailscale/github-action@v3
+      - uses: tailscale/github-action@84a3f23bb4d843bcf4da6cf824ec1be473daf4de # v3.2.3
         with:
           oauth-client-id: ${{ secrets.TS_INFRA_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_INFRA_OAUTH_SECRET }}
@@ -95,23 +95,23 @@ jobs:
     runs-on: ubuntu-latest
     environment: production
     steps:
-      - uses: actions/checkout@v4
-      - uses: jdx/mise-action@v2
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+      - uses: jdx/mise-action@c37c93293d6b742fc901e1406b8f764f6fb19dac # v2.4.4
       - id: collections
-        uses: actions/cache@v4
+        uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.ansible/collections
           key: ansible-collections-${{ hashFiles('ansible/requirements.yml') }}
       - if: steps.collections.outputs.cache-hit != 'true'
         run: ansible-galaxy collection install -r ansible/requirements.yml
-      - uses: actions/cache@v4
+      - uses: actions/cache@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
         with:
           path: ~/.terraform.d/plugin-cache
           key: terraform-providers-${{ hashFiles('terraform/.terraform.lock.hcl') }}
       - run: mkdir -p "$TF_PLUGIN_CACHE_DIR" # Terraform won't create it on a cache miss
       - run: terraform -chdir=terraform init -backend-config=backend.hcl
       - run: terraform -chdir=terraform apply -auto-approve -no-color
-      - uses: tailscale/github-action@v3
+      - uses: tailscale/github-action@84a3f23bb4d843bcf4da6cf824ec1be473daf4de # v3.2.3
         with:
           oauth-client-id: ${{ secrets.TS_INFRA_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_INFRA_OAUTH_SECRET }}

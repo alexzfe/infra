@@ -35,7 +35,7 @@ jobs:
       name: ${{ inputs.env }}
       url: ${{ inputs.url }}
     steps:
-      - uses: tailscale/github-action@v3
+      - uses: tailscale/github-action@84a3f23bb4d843bcf4da6cf824ec1be473daf4de # v3.2.3
         with:
           oauth-client-id: ${{ secrets.TS_CI_OAUTH_CLIENT_ID }}
           oauth-secret: ${{ secrets.TS_CI_OAUTH_SECRET }}

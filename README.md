@@ -41,6 +41,10 @@ Roll back by re-running the prod deploy of the previous tag, or on the box: `sud
 `mise install` installs the pinned Terraform, ansible-core, ansible-lint and shellcheck from `mise.toml`, then
 `ansible-galaxy collection install -r ansible/requirements.yml`.
 
+Everything is pinned: actions to commit SHAs, tools, the Ansible collection, providers (lock file) and the edge
+images. [Renovate](https://github.com/apps/renovate) proposes bumps as PRs once a release is a week old
+(`renovate.json`), so updates go through the same plan/check as any other change.
+
 ## One-time setup
 
 ### 1. Accounts and credentials
