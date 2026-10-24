@@ -76,16 +76,20 @@
     - ssh.socket
     - ssh.service
 
+- name: Install deploy-app and deploy-shell
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: /usr/local/bin/{{ item }}
+    mode: "0755"
+  loop:
+    - deploy-app
+    - deploy-shell
+
+# Its login shell only accepts `deploy-app ...`, so CI logging in as deploy gets no shell at all.
 - name: Create the deploy user
   ansible.builtin.user:
     name: deploy
-    shell: /bin/bash
-
-- name: Install deploy-app
-  ansible.builtin.copy:
-    src: deploy-app
-    dest: /usr/local/bin/deploy-app
-    mode: "0755"
+    shell: /usr/local/bin/deploy-shell
 
 # deploy may run deploy-app and nothing else: it can switch an app to another tag of its own image,
 # not run arbitrary containers. (Adding it to the docker group would make it root-equivalent.)

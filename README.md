@@ -14,7 +14,7 @@ me / CI ──Tailscale SSH──▶ same box            (no inbound ports open 
 | `terraform/` | Hetzner, Cloudflare, Tailscale | Server + deny-all firewall, tunnel + its routes, proxied DNS records, HSTS, the server's join key. State in R2. |
 | `terraform/modules/hetzner-server` | | The only provider-specific code. Swap it to move to OVH or anywhere else. |
 | `ansible/` | the VPS | Updates, OpenSSH off, Docker, nginx + cloudflared (`/opt/edge`), one compose project per app per env (`/opt/apps/<app>-<env>`). |
-| `deploy-app` | `/usr/local/bin` on the VPS | `sudo deploy-app <app> <staging\|prod> <sha>`: pull, start, wait for health, roll back on failure. |
+| `deploy-app` | `/usr/local/bin` on the VPS | `sudo deploy-app <app> <staging\|prod> <sha>`: pull, start, wait for health, roll back on failure. One deploy per app-env at a time. |
 | `.github/workflows/infra.yml` | CI | PR → lint, `terraform plan`, `ansible --check --diff`. Merge → apply both. |
 | `.github/workflows/deploy-app.yml` | CI, called by app repos | Joins the tailnet as `tag:ci`, runs `deploy-app`, smoke-tests the public URL. |
 | `.github/workflows/backups.yml` | CI, daily | Fails (and GitHub emails) if the homeserver hasn't stored an app's backup in 26 hours. |
@@ -89,9 +89,10 @@ covers `tag:ci` / `tag:infra-ci`.
 ],
 ```
 
-`tag:ci` (app repos) gets in only as `deploy`, which may only run `deploy-app`. `tag:infra-ci` (this repo) gets root
-because it runs Ansible. `tag:backup` (the homeserver's backup puller) gets in only as `backup-pull`, whose login
-shell accepts nothing but `backup-app <app> [stored]`.
+`tag:ci` (app repos) gets in only as `deploy`, whose login shell (`deploy-shell`) accepts nothing but
+`deploy-app <app> <env> <tag>`. `tag:infra-ci` (this repo) gets root because it runs Ansible. `tag:backup` (the
+homeserver's backup puller) gets in only as `backup-pull`, whose login shell accepts nothing but
+`backup-app <app> [stored]`.
 
 ### 3. First bring-up, from the laptop
 

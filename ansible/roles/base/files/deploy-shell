@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+# Login shell for `deploy`. Tailscale SSH starts it as `deploy-shell -c "<command>"`; the only command it accepts is
+# `deploy-app <app> <env> <tag>`, which it runs through sudo. No interactive shell, nothing else.
+set -euo pipefail
+
+die() { echo "deploy: only 'deploy-app <app> <staging|prod> <tag>' is allowed" >&2; exit 1; }
+
+[[ $# -eq 2 && $1 == -c ]] || die
+read -r -a words <<< "$2"
+[[ ${#words[@]} -eq 4 && ${words[0]} == deploy-app ]] || die
+# deploy-app validates its own arguments.
+exec sudo /usr/local/bin/deploy-app "${words[@]:1}"
