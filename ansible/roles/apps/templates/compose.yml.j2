@@ -8,6 +8,9 @@ services:
 {% if env == 'staging' %}
     # Staging shares the box with prod; cap it so it can't starve prod.
     mem_limit: {{ app.staging_mem_limit | default('256m') }}
+{% else %}
+    # A cap so one runaway app can't take the whole box (and the tunnel) down with it.
+    mem_limit: {{ app.mem_limit | default('1g') }}
 {% endif %}
 {% if app.env is defined %}
     environment:

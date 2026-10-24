@@ -6,6 +6,8 @@ services:
   nginx:
     image: {{ edge_nginx_image }}
     restart: unless-stopped
+    # If the box runs out of memory, the kernel should kill an app before the proxy or the tunnel.
+    oom_score_adj: -500
     volumes:
       # The folder, not the file: Ansible replaces the file on each change, and a single-file mount keeps
       # showing nginx the old one, so a reload would re-read the old config.
@@ -19,6 +21,7 @@ services:
   cloudflared:
     image: {{ edge_cloudflared_image }}
     restart: unless-stopped
+    oom_score_adj: -500
     command: tunnel --no-autoupdate run
     environment:
       TUNNEL_TOKEN: ${TUNNEL_TOKEN}
