@@ -18,6 +18,12 @@ services:
       {{ key }}: {{ (value | string | replace('{host}', app.hosts[env]) | replace('$', '$$')) | to_json }}
 {% endfor %}
 {% endif %}
+{% if app.env_file is defined %}
+    # Secrets this public repo can't hold, written on the box by hand (root, 0600). Absent is fine.
+    env_file:
+      - path: {{ app.env_file }}
+        required: false
+{% endif %}
 {% if app.volume is defined %}
     volumes:
       - data:{{ app.volume }}

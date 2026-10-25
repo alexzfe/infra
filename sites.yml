@@ -47,6 +47,9 @@ apps:
     stream_paths:
       - /events
     volume: /data
+    # The Google sign-in client: Settle's google-sign-in wizard writes it on the box. deploy-app
+    # rewrites .env, so it has its own file.
+    env_file: google.env
     env:
       SETTLE_PUBLIC_ORIGIN: https://{host}
       # The origin is reachable through Cloudflare alone, so CF-Connecting-IP is the visitor.
