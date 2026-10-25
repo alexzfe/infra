@@ -53,7 +53,8 @@ images. [Renovate](https://github.com/apps/renovate) proposes bumps as PRs once 
 | What | Where | Used as |
 |---|---|---|
 | Hetzner API token (read & write) | Hetzner console → project → Security → API tokens | `HCLOUD_TOKEN` |
-| Cloudflare API token: Zone › DNS › Edit and Zone › Zone Settings › Edit on xlobax.com, Account › Cloudflare Tunnel › Edit | My Profile → API Tokens | `CLOUDFLARE_API_TOKEN` |
+| Cloudflare API token: Zone › DNS › Edit, Zone › Zone Settings › Edit and Zone › Cache Rules › Edit on xlobax.com, Account › Cloudflare Tunnel › Edit | My Profile → API Tokens | `CLOUDFLARE_API_TOKEN` |
+| Cloudflare API token: Zone › Cache Purge › Purge on xlobax.com only | My Profile → API Tokens | app repos' `CLOUDFLARE_PURGE_TOKEN` (apps with `edge_cache`) |
 | R2 bucket `xlobax-tfstate` + an R2 API token (Object Read & Write, that bucket only) | R2 → Manage API tokens | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
 | Tailscale OAuth client **infra**: scopes Auth Keys (write) + Devices Core (write), tag `tag:infra-ci` only. It mints `tag:server` keys because the policy makes `tag:infra-ci` an owner of `tag:server`; a client with both tags could only mint keys carrying both | Tailscale admin → Settings → OAuth clients | `TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_CLIENT_SECRET` |
 | Tailscale OAuth client **ci**: scope `auth_keys` (write), tag `tag:ci` | same | app repos' `TS_CI_OAUTH_*` |
@@ -123,6 +124,8 @@ From then on, infra changes go through PRs like app code.
 1. Add it to `sites.yml` and merge. CI creates the DNS records, tunnel routes, nginx routes and compose files.
 2. In the app repo, copy `templates/app-release.yml` to `.github/workflows/release.yml` and adjust the names and
    URLs. Add a Dockerfile that serves on `:8080` (`templates/static-site.Dockerfile` for static sites).
+   With `edge_cache: true`, pass `purge_cache: true` to every deploy-app call and add the `CLOUDFLARE_PURGE_TOKEN`
+   secret to the app repo, or the edge keeps serving the previous release.
 3. Add the `TS_CI_OAUTH_CLIENT_ID` / `TS_CI_OAUTH_SECRET` secrets to the app repo.
 4. **Home network:** add a `server=/<host>/#` line for both new hostnames to the Pi-hole split-horizon file
    (`homeserver:/docker/pihole/etc-dnsmasq.d/02-split-horizon.conf`), then `docker restart pihole`. Without it the
