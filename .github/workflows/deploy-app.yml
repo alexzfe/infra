@@ -22,11 +22,18 @@ on:
         description: Public URL to smoke-test after the deploy
         type: string
         required: true
+      purge_cache:
+        description: Purge the URL's hostname from Cloudflare's cache after deploying (apps with edge_cache)
+        type: boolean
+        default: false
     secrets:
       TS_CI_OAUTH_CLIENT_ID:
         required: true
       TS_CI_OAUTH_SECRET:
         required: true
+      CLOUDFLARE_PURGE_TOKEN:
+        description: Zone › Cache Purge › Purge on xlobax.com. Required when purge_cache is true.
+        required: false
 
 jobs:
   deploy:
@@ -53,6 +60,24 @@ jobs:
           TAG: ${{ inputs.tag }}
         # deploy's login shell turns this into `sudo deploy-app ...` and refuses anything else.
         run: ssh -o StrictHostKeyChecking=no deploy@xlobax-vps deploy-app "$APP" "$APP_ENV" "$TAG"
+
+      # Before the smoke test, so it fetches the new release rather than the cached old one.
+      - name: Purge Cloudflare cache
+        if: inputs.purge_cache
+        env:
+          URL: ${{ inputs.url }}
+          TOKEN: ${{ secrets.CLOUDFLARE_PURGE_TOKEN }}
+          ZONE_ID: 74dc9c07ce32e56abc12074ef0da185d # xlobax.com; an ID, not a secret (terraform.tfvars)
+        run: |
+          if [ -z "$TOKEN" ]; then
+            echo "::error::purge_cache is set but CLOUDFLARE_PURGE_TOKEN is missing; the edge would keep the old release"
+            exit 1
+          fi
+          host=$(printf '%s' "$URL" | sed -E 's#^https?://([^/:]+).*#\1#')
+          curl --fail-with-body --silent --show-error -X POST \
+            -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+            --data "{\"hosts\":[\"$host\"]}" \
+            "https://api.cloudflare.com/client/v4/zones/$ZONE_ID/purge_cache"
 
       - name: Smoke test through Cloudflare
         env:

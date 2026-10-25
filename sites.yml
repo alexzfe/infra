@@ -16,6 +16,9 @@
 #   staging_mem_limit  Staging's memory cap (default 256m).
 #   max_body_size      nginx's `client_max_body_size` (default 1m).
 #   stream_paths       Paths that stream responses (Server-Sent Events): no proxy buffering, long read timeout.
+#   edge_cache         true: Cloudflare caches every response (HTML too) at the edge for up to 7 days, except
+#                      `health_path`. Only for sites that change only by deploy: the release workflow must pass
+#                      `purge_cache: true` to deploy-app, which purges the hostname after each deploy.
 #   backup             Command, run in the prod container, that writes a backup archive to stdout. The homeserver
 #                      pulls it nightly (see homeserver/).
 apps:
@@ -64,6 +67,8 @@ apps:
     port: 8080
     # A static file the Astro build emits; `/` would also pass, but this doesn't depend on the data.
     health_path: /healthz
+    # Static, and only changes by deploy (the data refresh deploys too), so HTML is served from the edge.
+    edge_cache: true
     hosts:
       prod: ufc.xlobax.com
       staging: ufc-staging.xlobax.com
