@@ -55,3 +55,12 @@ apps:
     hosts:
       prod: settle.xlobax.com
       staging: settle-staging.xlobax.com
+
+  - name: ufc
+    image: ghcr.io/alexzfe/fight-card-website
+    port: 8080
+    # A static file the Astro build emits; `/` would also pass, but this doesn't depend on the data.
+    health_path: /healthz
+    hosts:
+      prod: ufc.xlobax.com
+      staging: ufc-staging.xlobax.com
