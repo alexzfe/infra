@@ -90,6 +90,9 @@ apps:
       # Only prod scrapes ufcstats and ESPN: both envs share the box's IP. Staging rescores and republishes the
       # data on its own volume.
       FIGHTCARD_FETCH_HOST: ufc-data.xlobax.com
+    # The history store, the one part of the volume a rescrape can't rebuild: a consistent copy, as a .tgz holding
+    # history/history.sqlite (restore it into the volume's state/).
+    backup: [fightcard, history, backup, --db, /srv/fightcard/state/history/history.sqlite]
     hosts:
       prod: ufc-data.xlobax.com
       staging: ufc-data-staging.xlobax.com
