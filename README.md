@@ -142,7 +142,7 @@ A volume is `<app>-<env>-data`, created by Ansible and never removed by a deploy
 
 ## Backups
 
-Apps with `backup` in `sites.yml` (Settle, ufc-data) are backed up nightly to the homeserver. The homeserver pulls; the VPS
+Apps with `backup` in `sites.yml` (Settle) are backed up nightly to the homeserver. The homeserver pulls; the VPS
 holds no homeserver credential, so a broken-into VPS can't reach or delete the backups.
 
 ```
@@ -174,7 +174,8 @@ systemctl enable --now pull-backup@settle.timer
 ```
 
 Each new app with `backup` needs its own timer, once its prod instance is deployed (the `backups` workflow reports
-it `STALE` until the first pull):
+it `STALE` until the first pull). For ufc-data, once its `backup` line is in `sites.yml` (it lands after the engine
+that has `fightcard history backup` is on prod):
 
 ```sh
 systemctl start pull-backup@ufc-data.service && systemctl enable --now pull-backup@ufc-data.timer
@@ -197,9 +198,10 @@ docker compose start
 
 ### Restoring ufc-data
 
-Its archive holds `history/history.sqlite`, the history store, laid out like the seed tarball in fightcard-engine's
-docs/SERVICE.md ("Seeding a new volume"; a lost volume needs that seed's `data/` too). Between runs, streamed in
-through the running container, so the file is owned by its user; then a run publishes from it:
+This applies once ufc-data's backups are enabled (its `backup` line in `sites.yml`; not yet). Its archive holds
+`history/history.sqlite`, the history store, laid out like the seed tarball in fightcard-engine's docs/SERVICE.md
+("Seeding a new volume"; a lost volume needs that seed's `data/` too). Between runs, streamed in through the running
+container, so the file is owned by its user; then a run publishes from it:
 
 ```sh
 cd /opt/apps/ufc-data-prod
