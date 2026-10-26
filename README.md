@@ -11,7 +11,7 @@ me / CI ──Tailscale SSH──▶ same box            (no inbound ports open 
 | Piece | Where | Does |
 |---|---|---|
 | `sites.yml` | repo root | The list of apps and hostnames. Both Terraform and Ansible read it. |
-| `terraform/` | Hetzner, Cloudflare, Tailscale | Server + deny-all firewall, tunnel + its routes, proxied DNS records, HSTS, the server's join key. State in R2. |
+| `terraform/` | Hetzner, Cloudflare, Tailscale | Server + deny-all firewall, tunnel + its routes, proxied DNS records, HSTS, the server's join key, the model bucket. State in R2. |
 | `terraform/modules/hetzner-server` | | The only provider-specific code. Swap it to move to OVH or anywhere else. |
 | `ansible/` | the VPS | Updates, OpenSSH off, Docker, nginx + cloudflared (`/opt/edge`), one compose project per app per env (`/opt/apps/<app>-<env>`). |
 | `deploy-app` | `/usr/local/bin` on the VPS | `sudo deploy-app <app> <staging\|prod> <sha>`: pull, start, wait for health, roll back on failure. One deploy per app-env at a time. |
@@ -53,7 +53,7 @@ images. [Renovate](https://github.com/apps/renovate) proposes bumps as PRs once 
 | What | Where | Used as |
 |---|---|---|
 | Hetzner API token (read & write) | Hetzner console → project → Security → API tokens | `HCLOUD_TOKEN` |
-| Cloudflare API token: Zone › DNS › Edit, Zone › Zone Settings › Edit and Zone › Cache Rules › Edit on xlobax.com, Account › Cloudflare Tunnel › Edit | My Profile → API Tokens | `CLOUDFLARE_API_TOKEN` |
+| Cloudflare API token: Zone › DNS › Edit, Zone › Zone Settings › Edit and Zone › Cache Rules › Edit on xlobax.com, Account › Cloudflare Tunnel › Edit, Account › Workers R2 Storage › Edit | My Profile → API Tokens | `CLOUDFLARE_API_TOKEN` |
 | Cloudflare API token: Zone › Cache Purge › Purge on xlobax.com only | My Profile → API Tokens | app repos' `CLOUDFLARE_PURGE_TOKEN` (apps with `edge_cache`) |
 | R2 bucket `xlobax-tfstate` + an R2 API token (Object Read & Write, that bucket only) | R2 → Manage API tokens | `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` |
 | Tailscale OAuth client **infra**: scopes Auth Keys (write) + Devices Core (write), tag `tag:infra-ci` only. It mints `tag:server` keys because the policy makes `tag:infra-ci` an owner of `tag:server`; a client with both tags could only mint keys carrying both | Tailscale admin → Settings → OAuth clients | `TAILSCALE_OAUTH_CLIENT_ID`, `TAILSCALE_OAUTH_CLIENT_SECRET` |
@@ -206,6 +206,25 @@ cd /opt/apps/ufc-data-prod
 docker compose exec -T app tar -xzf - -C /srv/fightcard/state < ufc-data-2026-10-23.tgz
 docker compose exec app fightcard-service run
 ```
+
+## Model bucket
+
+Terraform creates the R2 bucket `fightcard-models` and serves it publicly at `https://models.xlobax.com/` (an R2
+custom domain; Cloudflare creates the proxied DNS record itself, so the name isn't in `sites.yml`). It holds the
+finish-model bundles that fight-auto-research publishes (`<version>/<file>`, then `latest.json`). ufc-data's
+`FIGHTCARD_MODEL_URL` (`sites.yml`, both envs) points at it and fightcard-engine pulls from it on every run, so the
+VPS needs no credential.
+
+After the first apply, once, by hand:
+
+1. Cloudflare → R2 → Manage API tokens → create a token with **Object Read & Write**, bucket `fightcard-models`
+   only.
+2. Store it as fight-auto-research's secrets `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID` and `R2_SECRET_ACCESS_KEY`.
+3. Add `server=/models.xlobax.com/#` to the Pi-hole split-horizon file, as in [Adding an app](#adding-an-app),
+   or the name doesn't resolve inside the house.
+
+The bucket is empty until research first publishes; until then the engine finds no `latest.json` and keeps the model
+baked into its image. If `models.xlobax.com` already has a record in Cloudflare, delete it first or the apply fails.
 
 ## Moving off Hetzner
 
