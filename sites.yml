@@ -72,3 +72,24 @@ apps:
     hosts:
       prod: ufc.xlobax.com
       staging: ufc-staging.xlobax.com
+
+  - name: ufc-data
+    image: ghcr.io/alexzfe/fightcard-engine
+    port: 8080
+    health_path: /healthz
+    # The public /v1/ API behind ufc.xlobax.com, and the scheduler that refreshes it, in one container
+    # (fightcard-engine's docs/SERVICE.md). Its Debian nginx base has curl, not wget: the image checks /healthz.
+    healthcheck: image
+    # The published generations nginx serves, plus the working data/, the ufcstats cookie and the history db.
+    volume: /srv/fightcard
+    # Scoring (pandas + LightGBM) peaks at a few hundred MB; staging runs it too.
+    mem_limit: 1g
+    staging_mem_limit: 768m
+    env:
+      FIGHTCARD_HOST: "{host}"
+      # Only prod scrapes ufcstats and ESPN: both envs share the box's IP. Staging rescores and republishes the
+      # data on its own volume.
+      FIGHTCARD_FETCH_HOST: ufc-data.xlobax.com
+    hosts:
+      prod: ufc-data.xlobax.com
+      staging: ufc-data-staging.xlobax.com
