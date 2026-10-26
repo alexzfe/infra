@@ -142,7 +142,7 @@ A volume is `<app>-<env>-data`, created by Ansible and never removed by a deploy
 
 ## Backups
 
-Apps with `backup` in `sites.yml` (Settle) are backed up nightly to the homeserver. The homeserver pulls; the VPS
+Apps with `backup` in `sites.yml` (Settle, ufc-data) are backed up nightly to the homeserver. The homeserver pulls; the VPS
 holds no homeserver credential, so a broken-into VPS can't reach or delete the backups.
 
 ```
@@ -173,6 +173,13 @@ systemctl start pull-backup@settle.service     # a first pull now; then check /s
 systemctl enable --now pull-backup@settle.timer
 ```
 
+Each new app with `backup` needs its own timer, once its prod instance is deployed (the `backups` workflow reports
+it `STALE` until the first pull):
+
+```sh
+systemctl start pull-backup@ufc-data.service && systemctl enable --now pull-backup@ufc-data.timer
+```
+
 `tailscaled-backup.service` expects `tailscaled` at `/usr/sbin/tailscaled` (Debian and Ubuntu packages); adjust
 `ExecStart` if `command -v tailscaled` says otherwise. Change `BACKUP_DIR` in `pull-backup@.service` to keep the
 archives elsewhere, and add the path to its `ReadWritePaths`.
@@ -186,6 +193,18 @@ cd /opt/apps/settle-prod && docker compose stop
 docker run --rm -i -v settle-prod-data:/data -w /data alpine \
   sh -c 'rm -rf /data/* && tar -xzf - && chown -R 1000:1000 /data' < settle-2026-10-23.tgz
 docker compose start
+```
+
+### Restoring ufc-data
+
+Its archive holds `history/history.sqlite`, the history store, laid out like the seed tarball in fightcard-engine's
+docs/SERVICE.md ("Seeding a new volume"; a lost volume needs that seed's `data/` too). Between runs, streamed in
+through the running container, so the file is owned by its user; then a run publishes from it:
+
+```sh
+cd /opt/apps/ufc-data-prod
+docker compose exec -T app tar -xzf - -C /srv/fightcard/state < ufc-data-2026-10-23.tgz
+docker compose exec app fightcard-service run
 ```
 
 ## Moving off Hetzner

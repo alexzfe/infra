@@ -77,8 +77,8 @@ apps:
     image: ghcr.io/alexzfe/fightcard-engine
     port: 8080
     health_path: /healthz
-    # The public /v1/ API behind ufc.xlobax.com, and the scheduler that refreshes it, in one container
-    # (fightcard-engine's docs/SERVICE.md). Its Debian nginx base has curl, not wget: the image checks /healthz.
+    # The public /v1/ API that the site (ufc.xlobax.com) builds from, and the scheduler that refreshes it, in one
+    # container (fightcard-engine's docs/SERVICE.md). Its Debian nginx base has no wget: the image has its own check.
     healthcheck: image
     # The published generations nginx serves, plus the working data/, the ufcstats cookie and the history db.
     volume: /srv/fightcard
@@ -90,6 +90,9 @@ apps:
       # Only prod scrapes ufcstats and ESPN: both envs share the box's IP. Staging rescores and republishes the
       # data on its own volume.
       FIGHTCARD_FETCH_HOST: ufc-data.xlobax.com
+    # The history store, the one part of the volume a rescrape can't rebuild: a consistent copy, as a .tgz holding
+    # history/history.sqlite (restore it into the volume's state/).
+    backup: [fightcard, history, backup, --db, /srv/fightcard/state/history/history.sqlite]
     hosts:
       prod: ufc-data.xlobax.com
       staging: ufc-data-staging.xlobax.com
