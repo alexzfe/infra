@@ -34,6 +34,23 @@ module "tunnel" {
   origin     = "http://proxy:80"
 }
 
+# Public bucket for the finish-model bundles that fight-auto-research publishes and fightcard-engine pulls
+# (`FIGHTCARD_MODEL_URL` on ufc-data in sites.yml). Public read through the custom domain, so the VPS holds no
+# credential; the publish token is made by hand (README). Not in sites.yml: it's not served by the VPS, and
+# Cloudflare creates the proxied DNS record for the domain itself. The explicit record wins over the home wildcard.
+resource "cloudflare_r2_bucket" "models" {
+  account_id = var.cloudflare_account_id
+  name       = "fightcard-models"
+}
+
+resource "cloudflare_r2_custom_domain" "models" {
+  account_id  = var.cloudflare_account_id
+  zone_id     = var.cloudflare_zone_id
+  bucket_name = cloudflare_r2_bucket.models.name
+  domain      = "models.xlobax.com"
+  enabled     = true
+}
+
 # HSTS, zone-wide. Cloudflare adds the header only to traffic it proxies, which is every hostname in sites.yml and
 # all of it https. No includeSubDomains: the home `*.xlobax.com` wildcard is DNS-only, straight to the homeserver,
 # and anything there without a certificate would become unreachable in browsers that had seen the header.
