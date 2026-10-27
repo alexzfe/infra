@@ -3,6 +3,8 @@ locals {
   hostnames = flatten([for app in local.sites.apps : values(app.hosts)])
   # Apps with `edge_cache: true`: every host, plus the path to leave uncached so health checks reach the origin.
   edge_cached = [for app in local.sites.apps : app if try(app.edge_cache, false)]
+  # Apps with `respect_origin_ttl: true` (and not edge_cache, whose rule already respects the origin's browser TTL).
+  origin_ttl = [for app in local.sites.apps : app if try(app.respect_origin_ttl, false) && !try(app.edge_cache, false)]
 }
 
 # Single-use key the server joins the tailnet with on first boot.
@@ -74,15 +76,15 @@ resource "cloudflare_zone_setting" "hsts" {
 # Deploys purge the hostname (deploy-app.yml `purge_cache`), so the TTL only bounds staleness if a purge fails.
 # A zone has one ruleset per phase: if a cache rule was ever made in the dashboard, import that ruleset first.
 resource "cloudflare_ruleset" "cache" {
-  count = length(local.edge_cached) > 0 ? 1 : 0
+  count = length(local.edge_cached) + length(local.origin_ttl) > 0 ? 1 : 0
 
   zone_id     = var.cloudflare_zone_id
   name        = "Cache rules"
-  description = "Edge caching for apps with edge_cache in sites.yml"
+  description = "Edge caching for apps with edge_cache, origin browser TTL for respect_origin_ttl (sites.yml)"
   kind        = "zone"
   phase       = "http_request_cache_settings"
 
-  rules = [for app in local.edge_cached : {
+  rules = concat([for app in local.edge_cached : {
     ref         = "edge_cache_${app.name}"
     description = "${app.name}: cache everything at the edge except ${app.health_path}"
     expression = format(
@@ -96,5 +98,13 @@ resource "cloudflare_ruleset" "cache" {
       edge_ttl    = { mode = "override_origin", default = 604800 } # 7 days
       browser_ttl = { mode = "respect_origin" }
     }
-  }]
+    }], [for app in local.origin_ttl : {
+    ref         = "origin_ttl_${app.name}"
+    description = "${app.name}: browsers get the origin's Cache-Control"
+    expression  = format("(http.host in {%s})", join(" ", [for host in values(app.hosts) : "\"${host}\""]))
+    action      = "set_cache_settings"
+    action_parameters = {
+      browser_ttl = { mode = "respect_origin" }
+    }
+  }])
 }

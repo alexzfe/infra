@@ -19,6 +19,8 @@
 #   edge_cache         true: Cloudflare caches every response (HTML too) at the edge for up to 7 days, except
 #                      `health_path`. Only for sites that change only by deploy: the release workflow must pass
 #                      `purge_cache: true` to deploy-app, which purges the hostname after each deploy.
+#   respect_origin_ttl true: browsers get the origin's Cache-Control as is. Without it, Cloudflare raises a short
+#                      max-age on the files it caches by extension (e.g. .gz) to the zone's 4 h browser TTL.
 #   backup             Command, run in the prod container, that writes a backup archive to stdout. The homeserver
 #                      pulls it nightly (see homeserver/).
 apps:
@@ -96,6 +98,8 @@ apps:
     # The history store, the one part of the volume a rescrape can't rebuild: a consistent copy, as a .tgz holding
     # history/history.sqlite (restore it into the volume's state/).
     backup: [fightcard, history, backup, --db, /srv/fightcard/state/history/history.sqlite]
+    # /v1/snapshot.tar.gz says max-age=60; without this browsers would keep it for 4 h.
+    respect_origin_ttl: true
     hosts:
       prod: ufc-data.xlobax.com
       staging: ufc-data-staging.xlobax.com
