@@ -105,7 +105,7 @@ apps:
       staging: ufc-data-staging.xlobax.com
 
   - name: wishlist
-    image: ghcr.io/alexzfe/christmaswishlist
+    image: ghcr.io/alexzfe/blind-wishlist
     # The family's Christmas wishlists: one small Node server with its lists in one JSON file under /data.
     port: 3000
     health_path: /
