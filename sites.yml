@@ -111,11 +111,9 @@ apps:
     health_path: /
     volume: /data
     # FAMILY_CODE=<the family passcode>, written on the box by hand (root, 0600): this repo is public.
+    # The passcode lockout counts wrong codes per visitor by the last X-Forwarded-For entry, which nginx sets from
+    # CF-Connecting-IP, so it needs no setting here.
     env_file: family.env
-    env:
-      # The origin is reachable through Cloudflare alone, so CF-Connecting-IP is the visitor. The passcode lockout
-      # counts wrong codes per visitor by it; without it every visitor would share one count.
-      TRUSTED_PROXY: cloudflare
     # The whole data folder: wishlists.json plus the app's own daily copies in backups/.
     backup: [tar, -czf, "-", -C, /data, .]
     hosts:
