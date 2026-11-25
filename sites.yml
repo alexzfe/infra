@@ -103,3 +103,19 @@ apps:
     hosts:
       prod: ufc-data.xlobax.com
       staging: ufc-data-staging.xlobax.com
+
+  - name: wishlist
+    image: ghcr.io/alexzfe/christmaswishlist
+    # The family's Christmas wishlists: one small Node server with its lists in one JSON file under /data.
+    port: 3000
+    health_path: /
+    volume: /data
+    # FAMILY_CODE=<the family passcode>, written on the box by hand (root, 0600): this repo is public.
+    # The passcode lockout counts wrong codes per visitor by the last X-Forwarded-For entry, which nginx sets from
+    # CF-Connecting-IP, so it needs no setting here.
+    env_file: family.env
+    # The whole data folder: wishlists.json plus the app's own daily copies in backups/.
+    backup: [tar, -czf, "-", -C, /data, .]
+    hosts:
+      prod: wishlist.xlobax.com
+      staging: wishlist-staging.xlobax.com
